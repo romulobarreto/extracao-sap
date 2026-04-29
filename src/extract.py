@@ -21,11 +21,13 @@ def get_connection() -> pyodbc.Connection:
     connection_string = (
         f"DSN={DSN_NAME};"
         "authenticator=externalbrowser;"
+        "CLIENT_SESSION_KEEP_ALIVE=true;"
     )
 
     return pyodbc.connect(
         connection_string,
         autocommit=True,
+        timeout=120,
     )
 
 
