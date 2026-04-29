@@ -10,6 +10,7 @@ EMAIL_RECIPIENTS = [
     "mateus.cantos@equatorialenergia.com.br",
     "gabriele.oliveira1@equatorialenergia.com.br",
     "romulo.barreto@equatorialenergia.com.br",
+    "julia.sousa@gruposetup.com",
 ]
 
 
