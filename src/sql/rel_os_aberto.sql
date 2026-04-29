@@ -36,10 +36,18 @@ SELECT
     END AS endereco,
 
     b.bairro,
-    b.municipio
+    b.municipio,
+    c.texto AS observacao
+
 FROM sb_perdas.eqtl_rs.gp_fiscalizacoes a
+
 LEFT JOIN eqtlinfo_prd.eqtl_rs.tab_cadastro b
     ON TRY_TO_NUMBER(LTRIM(a.instalacao, '0'))
        = TRY_TO_NUMBER(LTRIM(b.instalacao, '0'))
+
+LEFT JOIN eqtlinfo_prd.eqtl_rs.texto_obs_notas c
+    ON TRY_TO_NUMBER(LTRIM(a.notificatn, '0'))
+    = TRY_TO_NUMBER(LTRIM(c.nota, '0'))
+
 WHERE a.tipo_nota = 'FS'
   AND a.status_ccs = 'ATIV';
