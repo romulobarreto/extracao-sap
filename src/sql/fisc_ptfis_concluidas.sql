@@ -16,6 +16,9 @@ SELECT
     CAST(a.dta_modifica_ns AS DATE) AS data_conclusao,
     CAST(b.data_final_servico AS DATE) AS data_fiscalizacao,
 
+    d.toi,
+    d.toi_assinado,
+
     a.nfcat_code AS workflow,
     a.workcenter,
     a.grupo,
@@ -43,5 +46,8 @@ LEFT JOIN eqtlinfo_prd.eqtl_rs.visitas_notas b
 LEFT JOIN eqtlinfo_prd.eqtl_rs.tab_cadastro c
     ON TRY_TO_NUMBER(LTRIM(a.instalacao, '0'))
        = TRY_TO_NUMBER(LTRIM(c.instalacao, '0'))
+LEFT JOIN eqtlinfo_prd.eqtl_rs.info_gerais_notas d
+    ON TRY_TO_NUMBER(LTRIM(a.notificatn, '0'))
+    = TRY_TO_NUMBER(LTRIM(d.nota, '0'))
 WHERE a.status_ccs = 'FINL'
   AND a.tipo_nota = 'FS';
