@@ -24,7 +24,7 @@ SELECT
     a.grupo,
 
     /* Irregularidade como número */
-    TRY_TO_NUMBER(a.cod_irreg) AS irreg,
+    TRY_TO_NUMBER(LTRIM(e.irregularidade, '0')) AS irreg,
 
     a.cod_parecer AS parecer_tec,
     a.med_altera_equip,
@@ -49,5 +49,9 @@ LEFT JOIN eqtlinfo_prd.eqtl_rs.tab_cadastro c
 LEFT JOIN eqtlinfo_prd.eqtl_rs.info_gerais_notas d
     ON TRY_TO_NUMBER(LTRIM(a.notificatn, '0'))
     = TRY_TO_NUMBER(LTRIM(d.nota, '0'))
+LEFT JOIN eqtlinfo_prd.eqtl_rs.notas_fiscalizacao e
+    ON TRY_TO_NUMBER(LTRIM(a.notificatn, '0'))
+    = TRY_TO_NUMBER(LTRIM(e.nota, '0'))
+
 WHERE a.status_ccs = 'FINL'
   AND a.tipo_nota = 'FS';
