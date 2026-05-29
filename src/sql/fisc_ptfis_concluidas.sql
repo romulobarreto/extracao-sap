@@ -2,80 +2,160 @@ SELECT DISTINCT
     /* instalação sem zeros à esquerda, como número */
     TRY_TO_NUMBER(LTRIM(a.instalacao, '0')) AS instalacao,
 
-    c.status_comercial AS status,
+    b.status_comercial AS status,
 
-    c.move_in AS inicio_contr,
-    c.move_out AS fim_contr,
-
-    /* nota sem zeros à esquerda, como número */
-    TRY_TO_NUMBER(LTRIM(a.notificatn, '0')) AS nota,
-
-    a.status_ccs AS status_sap,
-
-    /* datas sem hora */
-    TO_DATE(TO_VARCHAR(f.data_baixa), 'YYYYMMDD') AS data_baixa,
-    CAST(b.data_final_servico AS DATE) AS data_fiscalizacao,
-
-    d.toi,
-    d.toi_assinado,
-
-    a.nfcat_code AS workflow,
-    a.workcenter,
-    a.grupo,
-
-    /* irregularidade como número */
-    CASE   
-        WHEN e.irregularidade IS NOT NULL
-        THEN TRY_TO_NUMBER(LTRIM(e.irregularidade, '0'))
-        ELSE 300
-    END AS irreg,
-
-    CASE
-        WHEN a.cod_parecer IS NOT NULL 
-        THEN a.cod_parecer
-        ELSE '0001'
-    END AS parecer_tec,
-
-    CASE
-        WHEN a.med_altera_equip IS NOT NULL
-        THEN a.med_altera_equip
-        ELSE 'MANTEM'
-    END AS med_altera_equip,
+    b.move_in AS inicio_contr,
+    b.move_out AS fim_contr,
+    b.municipio,
+    b.grupo_tensao AS grupo,
 
     /* medidor sem prefixo */
     CASE
-        WHEN c.medidor IS NOT NULL
-             AND LEFT(c.medidor, 2) BETWEEN 'AA' AND 'ZZ'
-        THEN SUBSTR(c.medidor, 3)
-        ELSE c.medidor
+        WHEN b.medidor IS NOT NULL
+             AND LEFT(b.medidor, 2) BETWEEN 'AA' AND 'ZZ'
+        THEN SUBSTR(b.medidor, 3)
+        ELSE b.medidor
     END AS medidor,
 
-    a.usu_bx_medida_fs AS usuario_baixa,
-    a.viatura AS placa
+    CASE
+        WHEN e.med_altera_equip IS NOT NULL
+        THEN e.med_altera_equip
+        ELSE 'MANTEM'
+    END AS med_altera_equip,
 
-FROM sb_perdas.eqtl_rs.gp_fiscalizacoes a
+    /* nota sem zeros à esquerda */
+    TRY_TO_NUMBER(LTRIM(a.nota, '0')) AS nota,
 
-LEFT JOIN eqtlinfo_prd.eqtl_rs.visitas_notas b
-    ON TRY_TO_NUMBER(LTRIM(a.notificatn, '0'))
-       = TRY_TO_NUMBER(LTRIM(b.nota, '0'))
+    LEFT(a.data_baixa, 6) AS cmpt,
 
-LEFT JOIN eqtlinfo_prd.eqtl_rs.tab_cadastro c
+    /* datas tratadas */
+    TO_DATE(TO_VARCHAR(a.data_baixa), 'YYYYMMDD') AS data_baixa,
+    TO_DATE(TO_VARCHAR(a.data_execucao), 'YYYYMMDD') AS data_fiscalizacao,
+
+    c.toi,
+    c.toi_assinado,
+
+    a.codificacao AS workflow,
+
+    /* workcenter derivado */
+    CASE
+        WHEN a.codificacao = 'OPAT' AND b.regional = 'SUL'
+        THEN 'RECEATSU'
+        WHEN a.codificacao = 'OPAT' AND b.regional = 'NORTE'
+        THEN 'RECEATNT'
+        WHEN a.codificacao <> 'OPAT' AND b.regional = 'SUL'
+        THEN 'RECEBOSU'
+        WHEN a.codificacao <> 'OPAT' AND b.regional = 'NORTE'
+        THEN 'RECEBONT'
+    END AS workcenter,
+
+    /* irregularidade tratada */
+    CASE
+        WHEN TRY_TO_NUMBER(LTRIM(a.codigo_irregularidade, '0')) IS NULL
+             AND a.grupo_medida = 'EFECADAS'
+        THEN 154
+        WHEN TRY_TO_NUMBER(LTRIM(a.codigo_irregularidade, '0')) IS NULL
+        THEN 300
+        ELSE TRY_TO_NUMBER(LTRIM(a.codigo_irregularidade, '0'))
+    END AS irreg,
+
+    /* classificação da irregularidade */
+    CASE
+        WHEN a.codificacao = 'OPAT'
+             AND TRY_TO_NUMBER(LTRIM(a.codigo_irregularidade, '0')) IN
+                 (109,115,129,131,132,136,143,146,154,156,164,165,168,171,172,174,175,176,188)
+        THEN 'C100'
+
+        WHEN a.codificacao = 'OPAT'
+             AND TRY_TO_NUMBER(LTRIM(a.codigo_irregularidade, '0')) IN
+                 (201,202,203,204,205,206,207,209,210,211,212,214,215,216,218,220,221,300,301,302,303,305,306,307,308,309,310,311,312,313,314,315)
+        THEN 'ACAO'
+
+        WHEN a.codificacao = 'OPAT'
+             AND TRY_TO_NUMBER(LTRIM(a.codigo_irregularidade, '0')) IS NULL
+        THEN 'ACAO'
+
+        WHEN a.codificacao IN ('ALDS', 'ALCL')
+             AND TRY_TO_NUMBER(LTRIM(a.codigo_irregularidade, '0')) IN (175, 154)
+        THEN 'REGU'
+
+        WHEN a.grupo_medida = 'EFECADAS'
+             AND TRY_TO_NUMBER(LTRIM(a.codigo_irregularidade, '0')) IS NULL
+        THEN 'REGU'
+
+        WHEN a.codificacao <> 'OPAT'
+             AND TRY_TO_NUMBER(LTRIM(a.codigo_irregularidade, '0')) IN
+                 (109,115,129,154,164,165,168,171,172,174,175,176,188)
+        THEN 'C100'
+
+        WHEN a.codificacao <> 'OPAT'
+             AND TRY_TO_NUMBER(LTRIM(a.codigo_irregularidade, '0')) IN
+                 (201,202,203,204,210,211,212,214,215,221)
+        THEN 'C200'
+
+        WHEN a.codificacao <> 'OPAT'
+             AND TRY_TO_NUMBER(LTRIM(a.codigo_irregularidade, '0')) IN
+                 (307,308,310,311)
+        THEN 'C300'
+
+        WHEN a.codificacao <> 'OPAT'
+             AND TRY_TO_NUMBER(LTRIM(a.codigo_irregularidade, '0')) IN
+                 (300,301,302,303,305,306,309,312,314,315)
+        THEN 'ACAO'
+
+        WHEN a.codificacao <> 'OPAT'
+             AND TRY_TO_NUMBER(LTRIM(a.codigo_irregularidade, '0')) IS NULL
+        THEN 'ACAO'
+    END AS classifica_irreg,
+
+    /* validação de status */
+    CASE
+        WHEN TRY_TO_NUMBER(LTRIM(a.codigo_irregularidade, '0')) = 306
+             AND b.status_comercial <> 'DS'
+             AND b.move_in < TO_DATE(TO_VARCHAR(a.data_execucao), 'YYYYMMDD')
+        THEN 'DESLIGAR'
+
+        WHEN TRY_TO_NUMBER(LTRIM(a.codigo_irregularidade, '0')) = 314
+             AND b.status_comercial <> 'DS'
+             AND b.move_in < TO_DATE(TO_VARCHAR(a.data_execucao), 'YYYYMMDD')
+        THEN 'DESLIGAR'
+
+        WHEN TRY_TO_NUMBER(LTRIM(a.codigo_irregularidade, '0')) = 175
+             AND b.status_comercial = 'DS'
+             AND b.move_out < TO_DATE(TO_VARCHAR(a.data_execucao), 'YYYYMMDD')
+        THEN 'LIGAR'
+    END AS verif_status,
+
+    a.grupo_medida,
+    a.codigo_medida AS parecer_tec,
+
+    d.nr_viatura AS placa,
+    e.usu_bx_medida_fs AS usuario_baixa
+
+
+/* tabelas */
+FROM eqtlinfo_prd.eqtl_rs.acoes_perdas a
+
+INNER JOIN eqtlinfo_prd.eqtl_rs.tab_cadastro b
     ON TRY_TO_NUMBER(LTRIM(a.instalacao, '0'))
-       = TRY_TO_NUMBER(LTRIM(c.instalacao, '0'))
+       = TRY_TO_NUMBER(LTRIM(b.instalacao, '0'))
 
-LEFT JOIN eqtlinfo_prd.eqtl_rs.info_gerais_notas d
-    ON TRY_TO_NUMBER(LTRIM(a.notificatn, '0'))
+LEFT JOIN eqtlinfo_prd.eqtl_rs.info_gerais_notas c
+    ON TRY_TO_NUMBER(LTRIM(a.nota, '0'))
+       = TRY_TO_NUMBER(LTRIM(c.nota, '0'))
+
+LEFT JOIN eqtlinfo_prd.eqtl_rs.visitas_notas d
+    ON TRY_TO_NUMBER(LTRIM(a.nota, '0'))
        = TRY_TO_NUMBER(LTRIM(d.nota, '0'))
 
-LEFT JOIN eqtlinfo_prd.eqtl_rs.notas_fiscalizacao e
-    ON TRY_TO_NUMBER(LTRIM(a.notificatn, '0'))
-       = TRY_TO_NUMBER(LTRIM(e.nota, '0'))
+LEFT JOIN sb_perdas.eqtl_rs.gp_fiscalizacoes e
+    ON TRY_TO_NUMBER(LTRIM(a.nota, '0'))
+       = TRY_TO_NUMBER(LTRIM(e.notificatn, '0'))
 
-INNER JOIN eqtlinfo_prd.eqtl_rs.acoes_perdas f
-    ON TRY_TO_NUMBER(LTRIM(a.notificatn, '0'))
-       = TRY_TO_NUMBER(LTRIM(f.nota, '0'))
 
-WHERE a.status_ccs = 'FINL'
-  AND a.tipo_nota = 'FS'
+/* condições */
+WHERE a.data_baixa >= '20260401'
 
+
+/* ordenação */
 ORDER BY data_baixa DESC;

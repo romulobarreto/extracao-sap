@@ -1,23 +1,35 @@
 SELECT
-    /* INSTALAÇÃO sem zeros à esquerda, como número */
+    /* instalação sem zeros à esquerda, como número */
     TRY_TO_NUMBER(LTRIM(a.instalacao, '0')) AS instalacao,
 
     b.status_comercial AS status,
 
-    /* NOTA sem zeros à esquerda, como número */
-    TRY_TO_NUMBER(LTRIM(a.notificatn, '0')) AS nota,
+    /* nota sem zeros à esquerda */
+    TRY_TO_NUMBER(LTRIM(a.nota, '0')) AS nota,
 
     a.status_ccs AS status_sap,
-    a.usu_criacao_ns AS usuario,
+    a.criado_por AS usuario,
 
-    /* Data de abertura sem hora */
-    CAST(a.dta_origem_ns AS DATE) AS abertura,
+    /* data de abertura */
+    CAST(a.data_criacao AS DATE) AS abertura,
 
-    a.nfcat_code AS workflow,
-    a.workcenter,
+    a.codificacao AS workflow,
+
+    /* workcenter derivado */
+    CASE
+        WHEN a.codificacao = 'OPAT' AND b.regional = 'SUL'
+        THEN 'RECEATSU'
+        WHEN a.codificacao = 'OPAT' AND b.regional = 'NORTE'
+        THEN 'RECEATNT'
+        WHEN a.codificacao <> 'OPAT' AND b.regional = 'SUL'
+        THEN 'RECEBOSU'
+        WHEN a.codificacao <> 'OPAT' AND b.regional = 'NORTE'
+        THEN 'RECEBONT'
+    END AS workcenter,
+
     b.grupo_tensao AS grupo,
 
-    /* Medidor sem prefixo (MD, RG, etc.) */
+    /* medidor sem prefixo */
     CASE
         WHEN b.medidor IS NOT NULL
              AND LEFT(b.medidor, 2) BETWEEN 'AA' AND 'ZZ'
@@ -26,28 +38,34 @@ SELECT
     END AS medidor,
 
     b.fase,
-    b.micro_gerador,
+    b.micro_gerador AS mmgd,
 
-    /* Endereço tratado como texto */
+    /* endereço tratado */
     CASE
         WHEN b.complemento IS NULL OR b.complemento = ''
-            THEN b.endereco || ' ' || b.numero
+        THEN b.endereco || ' ' || b.numero
         ELSE b.endereco || ' ' || b.numero || ' ' || b.complemento
     END AS endereco,
 
-    b.bairro,
+    /* bairro tratado */
+    REGEXP_REPLACE(TRIM(b.bairro), '^[0-9]+\\s*', '') AS bairro,
+
     b.municipio,
+
     c.texto AS observacao
 
-FROM sb_perdas.eqtl_rs.gp_fiscalizacoes a
+FROM eqtlinfo_prd.eqtl_rs.notas_servicos a
 
 LEFT JOIN eqtlinfo_prd.eqtl_rs.tab_cadastro b
     ON TRY_TO_NUMBER(LTRIM(a.instalacao, '0'))
        = TRY_TO_NUMBER(LTRIM(b.instalacao, '0'))
 
 LEFT JOIN eqtlinfo_prd.eqtl_rs.texto_obs_notas c
-    ON TRY_TO_NUMBER(LTRIM(a.notificatn, '0'))
-    = TRY_TO_NUMBER(LTRIM(c.nota, '0'))
+    ON TRY_TO_NUMBER(LTRIM(a.nota, '0'))
+       = TRY_TO_NUMBER(LTRIM(c.nota, '0'))
 
 WHERE a.tipo_nota = 'FS'
-  AND a.status_ccs = 'ATIV';
+  AND a.status_ccs = 'ATIV'
+  AND a.codificacao <> 'PEAF'
+
+ORDER BY abertura DESC;
